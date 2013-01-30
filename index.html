@@ -1,0 +1,264 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+	<title>A high level language for low level code</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=792, user-scalable=no">
+        <link rel="shortcut icon" href="myriabit.ico" type="image/x-icon"/>
+	<link rel="stylesheet" href="shower/themes/ribbon/styles/screen.css">
+	<link rel="stylesheet" href="shower/themes/ribbon/styles/print.css" media="print">
+        <!-- source for prettify is here https://code.google.com/p/google-code-prettify/ -->
+        <link href="prettify.css" type="text/css" rel="stylesheet" />
+        <script type="text/javascript" src="prettify.js"></script>
+
+	<!--
+		To apply styles to the certain slides
+		set slide ID to get needed elements
+		-->
+	<style>
+		#Cover h2 {
+			margin:65px 0 0;
+			color:#FFF;
+			text-align:center;
+			font-size:70px;
+			}
+		#Picture h2 {
+			color:#FFF;
+			}
+                #Cover div {background: #ffd108 url(pictures/myriabit.svg) no-repeat 405px 350px;}
+	</style>
+</head>
+<body class="list" onload="prettyPrint()">
+	<header class="caption">
+		<h1>A high level language for low level code</h1>
+                <p><a href="https://fosdem.org/2013/">Fosdem 2013</a></p>
+		<p><a href="https://github.com/justincormack">Justin Cormack</a></p>
+	</header>
+	<section class="slide cover" id="Cover"><div>
+		<h2>A high level language for low level code</h2>
+	</div></section>
+
+
+	<section class="slide"><div>
+		<h2>Origins</h2>
+		<p>When I started using Linux many years ago I soon started poking around to find out how it worked.</p>
+                <p>I started with <code>/etc/inittab</code> and worked on from there.</p>
+                <p>You could start to understand it as much was shell scripts.</p>
+		<footer>
+			
+		</footer>
+	</div></section>
+
+	<section class="slide"><div>
+		<h2>Requirements</h2>
+		<p>I was also using Linux containers to isolate processes</p>
+                <p>The assumption was that you would run a whole Linux distro for each container</p>
+                <p>Was there a simpler way?</p>
+		<footer>
+			
+		</footer>
+	</div></section>
+
+	<section class="slide"><div>
+		<h2>Dumb idea!</h2>
+		<p>Why not just build the stuff you need to boot Linux into a scripting language, and then write simple scripts to boot your system or VM?</p>
+                <p>After all how much do you need to build to run a simple application with some networking?</p>
+                <p>How much work could it be?</p>
+		<footer>
+			
+		</footer>
+	</div></section>
+
+	<section class="slide shout"><div>
+		<h2>Building it</h2>
+	</div></section>
+
+	<section class="slide"><div>
+		<h2>LuaJIT</h2>
+                <ul>
+		<li>Lua is small (10% of Ruby), fast
+                <li>Often used for configuration type applications
+                <li>It is Javascript the good bits
+                <li>LuaJIT has a foreign function interface (ffi) easy to deal with C structs
+                <li>The ffi works at native C speed, no overhead
+                </ul>
+                <p>LuaJIT is being used for other low level projects eg <a href="https://github.com/SnabbCo/snabbswitch/wiki">Snabb Switch</a>
+		<footer>
+			
+		</footer>
+	</div></section>
+
+	<section class="slide"><div>
+		<h2>Structure</h2>
+		<ul>
+                <li>system calls (most implemented)
+                <li>data structures, eg <code>struct stat</code>, <code>sockaddr_in</code>
+                <li>constants, eg <code>O_RDONLY</code>, <code>PROT_READ</code>, <code>EACCES</code>, <code>SIGKILL</code>
+                <li>ioctl support (only a few implemented, for tty code, bridges etc)
+                <li>utilities
+                <li>netlink support (network interfaces, routes implemented)
+                <li>architecture differences (x86, AMD64, ARM, PPC)
+                </ul>
+		<footer>
+			
+		</footer>
+	</div></section>
+
+	<section class="slide"><div>
+		<h2>Example system calls</h2>
+<pre class="prettyprint">
+local s = S.socket("inet", "stream, nonblock")
+s:setsockopt("socket", "reuseaddr", true)
+local sa = S.t.sockaddr_in(8000, "127.0.0.1")
+s:bind(sa)
+s:listen(128)
+local ep = S.epoll_create()
+ep:epoll_ctl("add", s, "in")
+</pre>
+		<footer>
+			
+		</footer>
+	</div></section>
+
+	<section class="slide"><div>
+		<h2>Example netlink</h2>
+<pre class="prettyprint">
+nl.create_interface {name = "dummy0", type = "dummy"}
+local i = nl.interfaces()
+i.dummy0:up()
+i.dummy0:setmac("46:9d:c9:06:dd:dd")
+i.dummy0:address("10.10.10.1/24")
+i.dummy0:down()
+i.dummy0:delete()
+</pre>
+		<footer>
+			
+		</footer>
+	</div></section>
+
+<!--
+	<section class="slide"><div>
+		<h2>Example netlink</h2>
+<p>Methods are defined to print network interfaces just like <code>ifconfig</code>
+<pre>
+dummy0    Link encap:Ethernet  HWaddr 46:9d:c9:06:dd:dd<br/>
+          inet addr: 10.10.10.1/24<br/>
+          inet6 addr: fe80::9869:96ff:fee3:dbf0/64<br/>
+          UP BROADCAST RUNNING NOARP  MTU: 1500<br/>
+          RX packets:0 errors:0 dropped:0<br/>
+          TX packets:1 errors:0 dropped:0<br/>
+</pre>
+		<footer>
+			
+		</footer>
+	</div></section>
+-->
+
+
+	<section class="slide"><div>
+		<h2>Difficulties</h2>
+		<ul>
+		<li>Libc ABI not exactly same as kernel
+		<li>ABI varies by libc, support glibc, <a href="http://www.musl-libc.org/">Musl</a>, <a href="http://www.uclibc.org/">uClibc</a>
+		<li>especially 64 bit file size on 32 bit machine
+		<li>end up using direct <code>syscall()</code> sometimes
+		</ul>
+		<p>Comprehensive test suite helped a lot in finding errors. Tests every system call and interface.</p>
+		<footer>
+			
+		</footer>
+	</div></section>
+
+	<section class="slide shout"><div>
+		<h2>What is it good for?</h2>
+	</div></section>
+
+	<section class="slide"><div>
+		<h2>Prototyping</h2>
+		<ul>
+		<li>Easier than C, or for people who want something easier to learn than C.
+		<li>Easy string operations, hashes, dynamic typing.
+		<li>If your prototype works out you might convert to C later.
+		<li>High performance.
+		</ul>
+		<footer>
+			
+		</footer>
+	</div></section>
+
+	<section class="slide"><div>
+		<h2>Network programs</h2>
+		<ul>
+		<li>Supports sockets, epoll, easy to write network applications.
+		<li>File descriptors, sockets garbage collected if no longer referenced.
+		<li>Easy to support async IO, including file IO.
+		<li>Fast, eg 20k+ requests / second
+		</ul>
+		<footer>
+			
+		</footer>
+	</div></section>
+
+	<section class="slide"><div>
+		<h2>Learning about Linux</h2>
+		<ul>
+		<li>You can just try things out with much less chance of messing things up and getting segfaults
+		<li>There is example code (could be more)
+		<li>Better documentation would be useful for this...
+		</ul>
+		<footer>
+			
+		</footer>
+	</div></section>
+
+	<section class="slide"><div>
+		<h2>Simple Linux containers and systems</h2>
+		<ul>
+		<li>Enough of netlink implemented to set up network interfaces and routes
+		<li>Full support for Linux namespaces, used extensively for testing.
+		<li>Build and test a full system and application as a whole.
+		<li>These have been called “phoenix servers” <a href="http://martinfowler.com/bliki/PhoenixServer.html">http://martinfowler.com/bliki/PhoenixServer.html</a>
+		</ul>
+		<footer>
+			
+		</footer>
+	</div></section>
+
+	<section class="slide shout"><div>
+		<h2>Roadmap</h2>
+	</div></section>
+
+	<section class="slide"><div>
+		<h2>Roadmap</h2>
+		<ul>
+		<li>Port to straight Lua not just LuaJIT
+		<li>MIPS support.
+		<li>Better documentation
+		<li>Security APIs needed for serious use: iptables, seccomp, SELinux
+		</ul>
+		<p>You could port to another language, only Go seems to have a good interface.
+		<footer>
+			
+		</footer>
+	</div></section>
+
+
+	<section class="slide"><div>
+		<h2>A high level language for low level code</h2>
+		<p>Justin Cormack</p>
+		<ul>
+			<li><a href="https://github.com/justincormack/ljsyscall">github.com/justincormack/ljsyscall</a></li>
+			<li><a href="http://twitter.com/justincormack">@justincormack</a></li>
+			<li><a href="mailto:justin@specialbusservice.com">justin@specialbusservice.com</a></li>
+		</ul>
+                <p>LuaJIT: <a href="http://luajit.org/">luajit.org<a/></p>
+	</div></section>
+	<p class="badge"><a href="https://github.com/justincormack/fosdem2013">Fork me on Github</a></p>
+	<!--
+		To hide progress bar from entire presentation
+		just remove “progress” element.
+		-->
+	<div class="progress"><div></div></div>
+	<script src="shower/shower.min.js"></script>
+</body>
+</html>
